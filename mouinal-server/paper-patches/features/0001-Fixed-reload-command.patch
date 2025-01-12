@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: xuyin <1573880184@qq.com>
+Date: Sun, 12 Jan 2025 23:33:46 +0800
+Subject: [PATCH] Fixed `reload` command.
+
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+index f07330f3795dcd1162f9fc7aec8dd0f124f4daf2..23fc0f519a88ab61cfe611d2b120310760185073 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+@@ -1141,7 +1141,11 @@ public final class CraftServer implements Server {
+         }
+ 
+         Plugin[] pluginClone = pluginManager.getPlugins().clone(); // Paper
+-        this.commandMap.clearCommands(); // Paper - Move command reloading up
++        // Mouinal start - Fixed `reload` command.
++        if (false) {
++            this.commandMap.clearCommands(); // Paper - Move command reloading up
++        }
++        // Mouinal end - Fixed `reload` command.
+         this.pluginManager.clearPlugins();
+         // Paper - move up
+         // Paper start

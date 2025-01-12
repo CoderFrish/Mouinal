@@ -1,0 +1,192 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: xuyin <1573880184@qq.com>
+Date: Sun, 12 Jan 2025 23:33:44 +0800
+Subject: [PATCH] Fixed `reload` command.
+
+
+diff --git a/net/minecraft/server/MinecraftServer.java b/net/minecraft/server/MinecraftServer.java
+index faf72dd6dff74296c73cb058aaabd1f9f475a072..a0faf17c62cb99936d8df321a3e713a2adfd3a1c 100644
+--- a/net/minecraft/server/MinecraftServer.java
++++ b/net/minecraft/server/MinecraftServer.java
+@@ -13,6 +13,7 @@ import com.mojang.datafixers.DataFixer;
+ import com.mojang.jtracy.DiscontinuousFrame;
+ import com.mojang.jtracy.TracyClient;
+ import com.mojang.logging.LogUtils;
++import dev.mouinal.schedule.AsyncSchedule;
+ import it.unimi.dsi.fastutil.longs.LongIterator;
+ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+ import it.unimi.dsi.fastutil.objects.ObjectArraySet;
+@@ -338,13 +339,22 @@ public abstract class MinecraftServer extends ReentrantBlockableEventLoop<TickTa
+         super.executeBlocking(runnable);
+     }
+ 
++    // Mouinal start - Fixed `reload` command.
++    private final AsyncSchedule asyncSchedule = new AsyncSchedule();
++
+     @Override
+     public void execute(Runnable runnable) {
+-        if (true) {
+-            throw new UnsupportedOperationException();
++        if (false) {
++            if (true) {
++                throw new UnsupportedOperationException();
++            }
++            super.execute(runnable);
+         }
+-        super.execute(runnable);
++
++        asyncSchedule.runNow(runnable);
+     }
++    // Mouinal end - Fixed `reload` command.
++
+     // Folia end - regionised ticking
+ 
+     public static <S extends MinecraftServer> S spin(Function<Thread, S> threadFunction) {
+@@ -2311,75 +2321,84 @@ public abstract class MinecraftServer extends ReentrantBlockableEventLoop<TickTa
+     }
+     public CompletableFuture<Void> reloadResources(Collection<String> selectedIds, io.papermc.paper.event.server.ServerResourcesReloadedEvent.Cause cause) {
+         // Paper end - Add ServerResourcesReloadedEvent
+-        CompletableFuture<Void> completableFuture = CompletableFuture.<ImmutableList>supplyAsync(
+-                () -> selectedIds.stream().map(this.packRepository::getPack).filter(Objects::nonNull).map(Pack::open).collect(ImmutableList.toImmutableList()),
+-                this
+-            )
+-            .thenCompose(
+-                list -> {
+-                    CloseableResourceManager closeableResourceManager = new MultiPackResourceManager(PackType.SERVER_DATA, list);
+-                    List<Registry.PendingTags<?>> list1 = TagLoader.loadTagsForExistingRegistries(closeableResourceManager, this.registries.compositeAccess(), io.papermc.paper.plugin.lifecycle.event.registrar.ReloadableRegistrarEvent.Cause.RELOAD); // Paper - tag lifecycle - add cause
+-                    return ReloadableServerResources.loadResources(
+-                            closeableResourceManager,
+-                            this.registries,
+-                            list1,
+-                            this.worldData.enabledFeatures(),
+-                            this.isDedicatedServer() ? Commands.CommandSelection.DEDICATED : Commands.CommandSelection.INTEGRATED,
+-                            this.getFunctionCompilationLevel(),
+-                            this.executor,
++        // Mouinal start - Fixed `reload` command.
++        CompletableFuture<Void> completableFuture = null;
++        if (!this.isSameThread()) {
++            completableFuture = CompletableFuture.<ImmutableList>supplyAsync(
++                            () -> selectedIds.stream().map(this.packRepository::getPack).filter(Objects::nonNull).map(Pack::open).collect(ImmutableList.toImmutableList()),
+                             this
+-                        )
+-                        .whenComplete((reloadableServerResources, throwable) -> {
+-                            if (throwable != null) {
+-                                closeableResourceManager.close();
++                    )
++                    .thenCompose(
++                            list -> {
++                                CloseableResourceManager closeableResourceManager = new MultiPackResourceManager(PackType.SERVER_DATA, list);
++                                List<Registry.PendingTags<?>> list1 = TagLoader.loadTagsForExistingRegistries(closeableResourceManager, this.registries.compositeAccess(), io.papermc.paper.plugin.lifecycle.event.registrar.ReloadableRegistrarEvent.Cause.RELOAD); // Paper - tag lifecycle - add cause
++                                return ReloadableServerResources.loadResources(
++                                                closeableResourceManager,
++                                                this.registries,
++                                                list1,
++                                                this.worldData.enabledFeatures(),
++                                                this.isDedicatedServer() ? Commands.CommandSelection.DEDICATED : Commands.CommandSelection.INTEGRATED,
++                                                this.getFunctionCompilationLevel(),
++                                                this.executor,
++                                                this
++                                        )
++                                        .whenComplete((reloadableServerResources, throwable) -> {
++                                            if (throwable != null) {
++                                                closeableResourceManager.close();
++                                            }
++                                        })
++                                        .thenApply(reloadableServerResources -> new MinecraftServer.ReloadableResources(closeableResourceManager, reloadableServerResources));
+                             }
+-                        })
+-                        .thenApply(reloadableServerResources -> new MinecraftServer.ReloadableResources(closeableResourceManager, reloadableServerResources));
+-                }
+-            )
+-            .thenAcceptAsync(
+-                reloadableResources -> {
+-                    io.papermc.paper.command.brigadier.PaperBrigadier.moveBukkitCommands(this.resources.managers().getCommands(), reloadableResources.managers().commands); // Paper
+-                    this.resources.close();
+-                    this.resources = reloadableResources;
+-                    this.packRepository.setSelected(selectedIds, false); // Paper - add pendingReload flag to determine required pack loading - false as this is *after* a reload (see above)
+-                    WorldDataConfiguration worldDataConfiguration = new WorldDataConfiguration(
+-                        getSelectedPacks(this.packRepository, true), this.worldData.enabledFeatures()
++                    )
++                    .thenAcceptAsync(
++                            reloadableResources -> {
++                                io.papermc.paper.command.brigadier.PaperBrigadier.moveBukkitCommands(this.resources.managers().getCommands(), reloadableResources.managers().commands); // Paper
++                                this.resources.close();
++                                this.resources = reloadableResources;
++                                this.packRepository.setSelected(selectedIds, false); // Paper - add pendingReload flag to determine required pack loading - false as this is *after* a reload (see above)
++                                WorldDataConfiguration worldDataConfiguration = new WorldDataConfiguration(
++                                        getSelectedPacks(this.packRepository, true), this.worldData.enabledFeatures()
++                                );
++                                this.worldData.setDataConfiguration(worldDataConfiguration);
++                                this.resources.managers.updateStaticRegistryTags();
++                                this.resources.managers.getRecipeManager().finalizeRecipeLoading(this.worldData.enabledFeatures());
++                                this.potionBrewing = this.potionBrewing.reload(this.worldData.enabledFeatures()); // Paper - Custom Potion Mixes
++                                if (Thread.currentThread() != this.serverThread) return; // Paper
++                                // Paper start - we don't need to save everything, just advancements
++                                // this.getPlayerList().saveAll();
++                                for (final ServerPlayer player : this.getPlayerList().getPlayers()) {
++                                    player.getAdvancements().save();
++                                }
++                                // Paper end - we don't need to save everything, just advancements
++                                this.getPlayerList().reloadResources();
++                                this.functionManager.replaceLibrary(this.resources.managers.getFunctionLibrary());
++                                this.structureTemplateManager.onResourceManagerReload(this.resources.resourceManager);
++                                this.fuelValues = FuelValues.vanillaBurnTimes(this.registries.compositeAccess(), this.worldData.enabledFeatures());
++                                org.bukkit.craftbukkit.block.data.CraftBlockData.reloadCache(); // Paper - cache block data strings; they can be defined by datapacks so refresh it here
++                                // Paper start - brigadier command API
++                                io.papermc.paper.command.brigadier.PaperCommands.INSTANCE.setValid(); // reset invalid state for event fire below
++                                io.papermc.paper.plugin.lifecycle.event.LifecycleEventRunner.INSTANCE.callReloadableRegistrarEvent(io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents.COMMANDS, io.papermc.paper.command.brigadier.PaperCommands.INSTANCE, org.bukkit.plugin.Plugin.class, io.papermc.paper.plugin.lifecycle.event.registrar.ReloadableRegistrarEvent.Cause.RELOAD); // call commands event for regular plugins
++                                final org.bukkit.craftbukkit.help.SimpleHelpMap helpMap = (org.bukkit.craftbukkit.help.SimpleHelpMap) this.server.getHelpMap();
++                                helpMap.clear();
++                                helpMap.initializeGeneralTopics();
++                                helpMap.initializeCommands();
++                                this.server.syncCommands(); // Refresh commands after event
++                                // Paper end
++                                new io.papermc.paper.event.server.ServerResourcesReloadedEvent(cause).callEvent(); // Paper - Add ServerResourcesReloadedEvent; fire after everything has been reloaded
++                            },
++                            this
+                     );
+-                    this.worldData.setDataConfiguration(worldDataConfiguration);
+-                    this.resources.managers.updateStaticRegistryTags();
+-                    this.resources.managers.getRecipeManager().finalizeRecipeLoading(this.worldData.enabledFeatures());
+-                    this.potionBrewing = this.potionBrewing.reload(this.worldData.enabledFeatures()); // Paper - Custom Potion Mixes
+-                    if (Thread.currentThread() != this.serverThread) return; // Paper
+-                    // Paper start - we don't need to save everything, just advancements
+-                    // this.getPlayerList().saveAll();
+-                    for (final ServerPlayer player : this.getPlayerList().getPlayers()) {
+-                        player.getAdvancements().save();
+-                    }
+-                    // Paper end - we don't need to save everything, just advancements
+-                    this.getPlayerList().reloadResources();
+-                    this.functionManager.replaceLibrary(this.resources.managers.getFunctionLibrary());
+-                    this.structureTemplateManager.onResourceManagerReload(this.resources.resourceManager);
+-                    this.fuelValues = FuelValues.vanillaBurnTimes(this.registries.compositeAccess(), this.worldData.enabledFeatures());
+-                    org.bukkit.craftbukkit.block.data.CraftBlockData.reloadCache(); // Paper - cache block data strings; they can be defined by datapacks so refresh it here
+-                    // Paper start - brigadier command API
+-                    io.papermc.paper.command.brigadier.PaperCommands.INSTANCE.setValid(); // reset invalid state for event fire below
+-                    io.papermc.paper.plugin.lifecycle.event.LifecycleEventRunner.INSTANCE.callReloadableRegistrarEvent(io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents.COMMANDS, io.papermc.paper.command.brigadier.PaperCommands.INSTANCE, org.bukkit.plugin.Plugin.class, io.papermc.paper.plugin.lifecycle.event.registrar.ReloadableRegistrarEvent.Cause.RELOAD); // call commands event for regular plugins
+-                    final org.bukkit.craftbukkit.help.SimpleHelpMap helpMap = (org.bukkit.craftbukkit.help.SimpleHelpMap) this.server.getHelpMap();
+-                    helpMap.clear();
+-                    helpMap.initializeGeneralTopics();
+-                    helpMap.initializeCommands();
+-                    this.server.syncCommands(); // Refresh commands after event
+-                    // Paper end
+-                    new io.papermc.paper.event.server.ServerResourcesReloadedEvent(cause).callEvent(); // Paper - Add ServerResourcesReloadedEvent; fire after everything has been reloaded
+-                },
+-                this
+-            );
+-        if (this.isSameThread()) {
+-            this.managedBlock(completableFuture::isDone);
++        } else {
++            completableFuture = CompletableFuture.runAsync(() -> {});
+         }
+ 
++        if (false) {
++            if (this.isSameThread()) {
++                this.managedBlock(completableFuture::isDone);
++            }
++        }
+         return completableFuture;
++        // Mouinal end - Fixed `reload` command.
+     }
+ 
+     public static WorldDataConfiguration configurePackRepository(
