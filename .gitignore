@@ -1,0 +1,14 @@
+.idea/
+build/
+.gradle/
+
+folia-api/
+folia-server/
+mouinal-api/build.gradle.kts
+mouinal-server/build.gradle.kts
+mouinal-server/src/minecraft/
+paper-api/
+paper-server/
+paper-api-generator/
+
+run/
