@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: xuyin <1573880184@qq.com>
+Date: Wed, 15 Jan 2025 23:24:36 +0800
+Subject: [PATCH] Added Configuration system.
+
+
+diff --git a/net/minecraft/server/dedicated/DedicatedServer.java b/net/minecraft/server/dedicated/DedicatedServer.java
+index 341e400f789e0eda29827e2c45c483a470d2e982..07e31107afb787c49dd0a129bbdcb4f7849bf8c4 100644
+--- a/net/minecraft/server/dedicated/DedicatedServer.java
++++ b/net/minecraft/server/dedicated/DedicatedServer.java
+@@ -19,6 +19,8 @@ import java.util.List;
+ import java.util.Locale;
+ import java.util.Optional;
+ import javax.annotation.Nullable;
++
++import dev.mouinal.config.MouinalConfig;
+ import net.minecraft.DefaultUncaughtExceptionHandler;
+ import net.minecraft.DefaultUncaughtExceptionHandlerWithName;
+ import net.minecraft.SharedConstants;
+@@ -79,6 +81,7 @@ public class DedicatedServer extends MinecraftServer implements ServerInterface
+     @Nullable
+     private DebugSampleSubscriptionTracker debugSampleSubscriptionTracker;
+     public ServerLinks serverLinks;
++    public MouinalConfig mouinalConfig = new MouinalConfig();
+ 
+     public DedicatedServer(
+         joptsimple.OptionSet options, net.minecraft.server.WorldLoader.DataLoadContext worldLoader, // CraftBukkit - Signature changed
+@@ -206,6 +209,8 @@ public class DedicatedServer extends MinecraftServer implements ServerInterface
+         this.setPlayerList(new DedicatedPlayerList(this, this.registries(), this.playerDataStorage));
+         org.spigotmc.SpigotConfig.init((java.io.File) this.options.valueOf("spigot-settings"));
+         org.spigotmc.SpigotConfig.registerCommands();
++        mouinalConfig.loadConfig();
++        mouinalConfig.setup();
+         // Spigot end
+         io.papermc.paper.util.ObfHelper.INSTANCE.getClass(); // Paper - load mappings for stacktrace deobf and etc.
+         // Paper start - initialize global and world-defaults configuration
