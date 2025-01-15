@@ -39,10 +39,11 @@
  dependencies {
 -    implementation(project(":folia-api"))
 +    implementation(project(":mouinal-api"))
++    implementation("io.github.classgraph:classgraph:4.8.179")
      implementation("ca.spottedleaf:concurrentutil:0.0.3")
      implementation("org.jline:jline-terminal-ffm:3.27.1") // use ffm on java 22+
      implementation("org.jline:jline-terminal-jni:3.27.1") // fall back to jni on java 21
-@@ -216,14 +_,14 @@
+@@ -217,14 +_,14 @@
          val gitBranch = git.exec(providers, "rev-parse", "--abbrev-ref", "HEAD").get().trim()
          attributes(
              "Main-Class" to "org.bukkit.craftbukkit.Main",
