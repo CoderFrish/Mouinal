@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: xuyin <1573880184@qq.com>
+Date: Fri, 17 Jan 2025 16:43:17 +0800
+Subject: [PATCH] Removed timings.
+
+
+diff --git a/net/minecraft/server/MinecraftServer.java b/net/minecraft/server/MinecraftServer.java
+index a0faf17c62cb99936d8df321a3e713a2adfd3a1c..39bf0755f00b89992ecc3668f61b27b8f938ff6a 100644
+--- a/net/minecraft/server/MinecraftServer.java
++++ b/net/minecraft/server/MinecraftServer.java
+@@ -1708,7 +1708,6 @@ public abstract class MinecraftServer extends ReentrantBlockableEventLoop<TickTa
+         profiler.pop();
+         // Paper end - Incremental chunk and player saving
+ 
+-        ProfilerFiller profilerFiller = Profiler.get();
+         //this.runAllTasks(); // Paper - move runAllTasks() into full server tick (previously for timings) // Folia - region threading
+         //this.server.spark.executeMainThreadTasks(); // Paper - spark // Folia - region threading
+         // Paper start - Server Tick Events
+diff --git a/net/minecraft/server/dedicated/DedicatedServer.java b/net/minecraft/server/dedicated/DedicatedServer.java
+index 07e31107afb787c49dd0a129bbdcb4f7849bf8c4..c57e8bf3cdcab97f41f5763c9b8c32400f013ae5 100644
+--- a/net/minecraft/server/dedicated/DedicatedServer.java
++++ b/net/minecraft/server/dedicated/DedicatedServer.java
+@@ -1,20 +1,16 @@
+ package net.minecraft.server.dedicated;
+ 
+-import com.google.common.collect.Lists;
+ import com.mojang.authlib.GameProfile;
+ import com.mojang.datafixers.DataFixer;
+ import com.mojang.logging.LogUtils;
+-import java.io.BufferedReader;
++
+ import java.io.IOException;
+-import java.io.InputStreamReader;
+ import java.io.Writer;
+ import java.net.InetAddress;
+ import java.net.Proxy;
+ import java.net.URI;
+-import java.nio.charset.StandardCharsets;
+ import java.nio.file.Files;
+ import java.nio.file.Path;
+-import java.util.Collections;
+ import java.util.List;
+ import java.util.Locale;
+ import java.util.Optional;
