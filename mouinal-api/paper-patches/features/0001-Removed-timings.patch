@@ -1,0 +1,158 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: xuyin <1573880184@qq.com>
+Date: Fri, 17 Jan 2025 16:43:18 +0800
+Subject: [PATCH] Removed timings.
+
+
+diff --git a/src/main/java/org/bukkit/plugin/PluginManager.java b/src/main/java/org/bukkit/plugin/PluginManager.java
+index 47153dee66782a00b980ecf15e8774ab6f3d887d..c2e062fff44eb973072dbbe5a23a29f854f8ffbf 100644
+--- a/src/main/java/org/bukkit/plugin/PluginManager.java
++++ b/src/main/java/org/bukkit/plugin/PluginManager.java
+@@ -312,7 +312,9 @@ public interface PluginManager extends io.papermc.paper.plugin.PermissionManager
+      *
+      * @return True if event timings are to be used
+      */
+-    public boolean useTimings();
++    default boolean useTimings() {
++        return false;
++    }
+ 
+     // Paper start
+     @org.jetbrains.annotations.ApiStatus.Internal
+diff --git a/src/main/java/org/bukkit/plugin/SimplePluginManager.java b/src/main/java/org/bukkit/plugin/SimplePluginManager.java
+index 468f5646da7bc413a6e91e82379e6554cc8b459d..d03e9446b9202504cb2f257dafe7994d89b117b1 100644
+--- a/src/main/java/org/bukkit/plugin/SimplePluginManager.java
++++ b/src/main/java/org/bukkit/plugin/SimplePluginManager.java
+@@ -25,6 +25,7 @@ import java.util.WeakHashMap;
+ import java.util.logging.Level;
+ import java.util.regex.Matcher;
+ import java.util.regex.Pattern;
++
+ import org.bukkit.Server;
+ import org.bukkit.World;
+ import org.bukkit.command.Command;
+@@ -60,8 +61,6 @@ public final class SimplePluginManager implements PluginManager {
+     public final Map<String, Map<Permissible, Boolean>> permSubs = new HashMap<String, Map<Permissible, Boolean>>();
+     public final Map<Boolean, Map<Permissible, Boolean>> defSubs = new HashMap<Boolean, Map<Permissible, Boolean>>();
+     public PluginManager paperPluginManager;
+-    // Paper end
+-    private boolean useTimings = false;
+ 
+     public SimplePluginManager(@NotNull Server instance, @NotNull SimpleCommandMap commandMap) {
+         server = instance;
+@@ -953,22 +952,6 @@ public final class SimplePluginManager implements PluginManager {
+         return false;
+     }
+ 
+-    @Override
+-    public boolean useTimings() {
+-        if (true) {return this.paperPluginManager.useTimings();} // Paper
+-        return co.aikar.timings.Timings.isTimingsEnabled(); // Spigot
+-    }
+-
+-    /**
+-     * Sets whether or not per event timing code should be used
+-     *
+-     * @param use True if per event timing code should be used
+-     */
+-    @Deprecated(forRemoval = true)
+-    public void useTimings(boolean use) {
+-        co.aikar.timings.Timings.setTimingsEnabled(use); // Paper
+-    }
+-
+     // Paper start
+     public void clearPermissions() {
+         if (true) {this.paperPluginManager.clearPermissions(); return;} // Paper
+diff --git a/src/main/java/org/bukkit/plugin/java/JavaPluginLoader.java b/src/main/java/org/bukkit/plugin/java/JavaPluginLoader.java
+index b412aaf08901d169ac9fc89b36f9d6ccb95c53d3..6fd8cebb81b94861d4a9091d652e1b3567e50cf7 100644
+--- a/src/main/java/org/bukkit/plugin/java/JavaPluginLoader.java
++++ b/src/main/java/org/bukkit/plugin/java/JavaPluginLoader.java
+@@ -43,7 +43,6 @@ import org.bukkit.plugin.TimedRegisteredListener;
+ import org.bukkit.plugin.UnknownDependencyException;
+ import org.jetbrains.annotations.NotNull;
+ import org.jetbrains.annotations.Nullable;
+-import org.spigotmc.CustomTimingsHandler; // Spigot
+ import org.yaml.snakeyaml.error.YAMLException;
+ 
+ /**
+@@ -232,7 +231,6 @@ public final class JavaPluginLoader implements PluginLoader {
+         Preconditions.checkArgument(plugin != null, "Plugin can not be null");
+         Preconditions.checkArgument(listener != null, "Listener can not be null");
+ 
+-        boolean useTimings = server.getPluginManager().useTimings();
+         Map<Class<? extends Event>, Set<RegisteredListener>> ret = new HashMap<Class<? extends Event>, Set<RegisteredListener>>();
+         Set<Method> methods;
+         try {
+diff --git a/src/main/java/org/spigotmc/CustomTimingsHandler.java b/src/main/java/org/spigotmc/CustomTimingsHandler.java
+deleted file mode 100644
+index 5fbacfcf108432c5187aa9a4092d00d7d5b0fd53..0000000000000000000000000000000000000000
+--- a/src/main/java/org/spigotmc/CustomTimingsHandler.java
++++ /dev/null
+@@ -1,67 +0,0 @@
+-/*
+- * This file is licensed under the MIT License (MIT).
+- *
+- * Copyright (c) 2014 Daniel Ennis <http://aikar.co>
+- *
+- * Permission is hereby granted, free of charge, to any person obtaining a copy
+- * of this software and associated documentation files (the "Software"), to deal
+- * in the Software without restriction, including without limitation the rights
+- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+- * copies of the Software, and to permit persons to whom the Software is
+- * furnished to do so, subject to the following conditions:
+- *
+- * The above copyright notice and this permission notice shall be included in
+- * all copies or substantial portions of the Software.
+- *
+- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+- * THE SOFTWARE.
+- */
+-package org.spigotmc;
+-
+-import org.bukkit.Bukkit;
+-import org.jetbrains.annotations.NotNull;
+-import org.bukkit.plugin.AuthorNagException;
+-import co.aikar.timings.Timing;
+-import co.aikar.timings.Timings;
+-import co.aikar.timings.TimingsManager;
+-
+-import java.lang.reflect.Method;
+-import java.util.logging.Level;
+-
+-/**
+- * This is here for legacy purposes incase any plugin used it.
+- *
+- * If you use this, migrate ASAP as this will be removed in the future!
+- *
+- * @deprecated
+- * @see co.aikar.timings.Timings#of
+- */
+-@Deprecated(forRemoval = true)
+-public final class CustomTimingsHandler {
+-    private final Timing handler;
+-
+-    public CustomTimingsHandler(@NotNull String name) {
+-        Timing timing;
+-
+-        new AuthorNagException("Deprecated use of CustomTimingsHandler. Timings has been removed.").printStackTrace();
+-        try {
+-            final Method ofSafe = TimingsManager.class.getDeclaredMethod("getHandler", String.class, String.class, Timing.class);
+-            ofSafe.setAccessible(true);
+-            timing = (Timing) ofSafe.invoke(null,"Minecraft", "(Deprecated API) " + name, null);
+-        } catch (Exception e) {
+-            e.printStackTrace();
+-            Bukkit.getLogger().log(Level.SEVERE, "This handler could not be registered");
+-            timing = Timings.NULL_HANDLER;
+-        }
+-        handler = timing;
+-    }
+-
+-    public void startTiming() { handler.startTiming(); }
+-    public void stopTiming() { handler.stopTiming(); }
+-
+-}
